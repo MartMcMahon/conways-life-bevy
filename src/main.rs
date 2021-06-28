@@ -76,7 +76,7 @@ struct Materials {
     black_material: Handle<ColorMaterial>,
     grey_material: Handle<ColorMaterial>,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum Cellstate {
     Alive,
     Dead,
@@ -87,6 +87,12 @@ struct Cell {
     y: f32,
     state: Cellstate,
 }
+// impl Cell {
+//     fn new(x: f32, y: f32, state: Cellstate, index: i32) -> Cell {
+//         if index
+
+//     }
+// }
 
 fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
     let mut cells: Vec<Cell> = Vec::new();
@@ -152,7 +158,8 @@ fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
             if x < 3.0 && y < 3.0 {
                 cells.push(temp.remove(0));
             } else {
-                let b: bool = rng.gen();
+                // let b: bool = rng.gen();
+                let b: bool = false;
                 cells.push(Cell {
                     x: x as f32,
                     y: y as f32,
@@ -200,8 +207,244 @@ fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
     }
 }
 
-fn get_neighbors(world: &Vec<Cell>, index: usize) -> Vec<Cell> {
-    world.clone()
+#[derive(Debug)]
+struct Neighbors {
+    nw: Option<i32>,
+    n: Option<i32>,
+    ne: Option<i32>,
+    e: Option<i32>,
+    se: Option<i32>,
+    s: Option<i32>,
+    sw: Option<i32>,
+    w: Option<i32>,
+}
+impl Neighbors {
+    fn new(index: usize, width: i32) -> Neighbors {
+        let idx = index as i32;
+        Neighbors {
+            nw: Some(idx - width - 1),
+            n: Some(idx - width),
+            ne: Some(idx - width + 1),
+            e: Some(idx + 1),
+            se: Some(idx + width + 1),
+            s: Some(idx + width),
+            sw: Some(idx + width - 1),
+            w: Some(idx - 1),
+        }
+    }
+}
+
+fn get_neighbors(world: &Vec<Cell>, index: usize) -> u32 {
+    let idx = index as u32;
+    let mut neighbors = Neighbors::new(index, WIDTH as i32);
+
+    if idx < WIDTH {
+        neighbors.nw = None;
+        neighbors.n = None;
+        neighbors.ne = None;
+    }
+    if idx % WIDTH == WIDTH - 1 {
+        neighbors.ne = None;
+        neighbors.e = None;
+        neighbors.se = None;
+    }
+    if idx >= (HEIGHT - 1) * WIDTH {
+        neighbors.se = None;
+        neighbors.s = None;
+        neighbors.sw = None;
+    }
+    if idx % WIDTH == 0 {
+        neighbors.sw = None;
+        neighbors.w = None;
+        neighbors.nw = None;
+    }
+
+    if idx == 0 {
+        neighbors.nw = None;
+        neighbors.n = None;
+        neighbors.ne = None;
+        neighbors.w = None;
+        neighbors.sw = None;
+    } else if idx == WIDTH - 1 {
+        neighbors.nw = None;
+        neighbors.n = None;
+        neighbors.ne = None;
+        neighbors.e = None;
+        neighbors.se = None;
+    } else if idx == WIDTH * HEIGHT - 1 {
+        neighbors.ne = None;
+        neighbors.e = None;
+        neighbors.se = None;
+        neighbors.s = None;
+        neighbors.sw = None;
+    } else if idx == WIDTH * HEIGHT - WIDTH {
+        neighbors.se = None;
+        neighbors.s = None;
+        neighbors.sw = None;
+        neighbors.w = None;
+        neighbors.nw = None;
+    }
+
+    println!("index {}", index);
+    println!("{:?}", neighbors);
+
+    let mut count = 0;
+
+    match neighbors.nw {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+    match neighbors.n {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+    match neighbors.ne {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+    match neighbors.e {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+
+    match neighbors.se {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+
+    match neighbors.s {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+
+    match neighbors.sw {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+
+    match neighbors.w {
+        Some(i) => match world[i as usize].state {
+            Cellstate::Alive => {
+                count += 1;
+            }
+            Cellstate::Dead => {}
+        },
+        None => {}
+    }
+
+    count
+}
+
+// need to be more thorough checking corner cases
+const wall: Option<i32> = None;
+fn get_neighbor_count(world: &Vec<Cell>, index: usize) -> i32 {
+    let mut count: i32 = 0;
+    let mut neighbors: Vec<usize> = Vec::new();
+
+    println!(" index {}", index);
+    let index = index as i32;
+    println!(" index  {}", index);
+    let width = WIDTH as i32;
+    println!("WIDTH {}", WIDTH);
+    println!("width {}", width);
+
+    // top neighbors
+    let mut val = index - width;
+    let mut n = None;
+    let mut nw = None;
+    let mut ne = None;
+
+    if val >= 0 {
+        n = Some(val);
+
+        if index % width != width - 1 {
+            nw = Some((val - 1));
+        }
+
+        if index % width != 0 && index < 99 {
+            ne = Some((val + 1));
+        }
+    }
+
+    // bottom neighbors
+    val = index + width;
+    let mut s = None;
+    let mut sw = None;
+    let mut w = None;
+    let mut se = None;
+    let mut e = None;
+    if index < (width * (HEIGHT - 1) as i32) {
+        s = Some(val);
+
+        if index % width != 1 {
+            sw = Some((val - 1));
+        }
+
+        if index % width != 0 && index < 99 {
+            se = Some((val + 1));
+        }
+    }
+
+    println!("index {}", index);
+    println!("width {}", width);
+    println!("math {}", index % width);
+    if index % width != 0 {
+        w = Some((index - 1));
+    }
+
+    if index % width != width - 1 {
+        e = Some((index + 1));
+    }
+
+    for i in vec![nw, n, ne, e, se, s, sw, w] {
+        println!("{:?}", i);
+        // println!("usize {:?}", i);
+        match i {
+            Some(idx) => match world[idx as usize].state {
+                Cellstate::Alive => {
+                    count += 1;
+                }
+                Cellstate::Dead => {}
+            },
+            None => {}
+        }
+    }
+    count
 }
 
 fn iteration(
@@ -218,9 +461,29 @@ fn iteration(
     let mut new_world = old_world.clone();
 
     for (i, cell) in old_world.iter().enumerate() {
-        get_neighbors(&old_world, i);
-        if i > 0 {
-            new_world[i - 1] = cell.clone();
+        let live_neighbors = get_neighbors(&old_world, i);
+
+        match live_neighbors {
+            2 => {
+                if cell.state == Cellstate::Alive {
+                    new_world[i].state = Cellstate::Alive;
+                } else {
+                    new_world[i].state = Cellstate::Dead;
+                }
+            }
+
+            3 => {
+                new_world[i].state = Cellstate::Alive;
+            }
+            _ => {
+                new_world[i].state = Cellstate::Dead;
+            }
+        }
+
+        if live_neighbors == 3 {
+            new_world[i].state = Cellstate::Alive;
+        } else {
+            new_world[i].state = Cellstate::Dead;
         }
     }
 
@@ -236,62 +499,6 @@ fn iteration(
             }
         }
     }
-
-    // if c % 2 == 0 {
-    //     cell.state = Cellstate::Alive;
-    //     *mat = materials.white_material.clone();
-    // } else {
-    //     cell.state = Cellstate::Dead;
-    //     *mat = materials.grey_material.clone();
-    // }
-    // c += 1;
-    // check neighbors
-    // cells.iter_mut().map(|(mut neighbor_cell, _)| {
-    //     match neighbor_cell.y {
-    //         cell.y + 1.0 => {
-    //             // north neighbor
-    //         },
-    //         cell.y - 1.0 => {
-    //             // sourth
-    //         }
-    //     };
-    //     match neighbor_cell.x {
-    //         cell.x -1.0 => {
-    //             // west
-    //         },
-    //         cell.x +1.0 => {
-    //             // east
-    //         }
-    //     }
-    // });
-
-    // match &cell.count_live_neighbors() {
-    //     3 => {
-    //         cell.state = Cellstate::Alive;
-    //         // *mat = materials.white_material.clone();
-    //     }
-    //     _ => {
-    //         cell.state = Cellstate::Dead;
-    //         // *mat = materials.grey_material.clone();
-    //     }
-    // }
-    // match &cell.state {
-    // Cellstate::Alive => {
-    //     match cell.count_live_neighbors(&cell) {
-    // _ => {}
-    // }
-
-    // fewer than two live neighbors, die
-    // 2-3 live neighbors, live on
-    // more than 3, die
-    //
-    // cell.state = Cellstate::Dead;
-    // }
-    // Cellstate::Dead => {
-    // // ==3 live neighbors, become alive
-    // // cell.state = Cellstate::Alive;
-    // }
-    // }
 }
 
 fn square_spawner(mut commands: Commands, materials: Res<Materials>) {
@@ -300,51 +507,3 @@ fn square_spawner(mut commands: Commands, materials: Res<Materials>) {
         ..Default::default()
     });
 }
-
-// fn grid_system(mut lines: ResMut<DebugLines>) {
-//     let thickness = 1.0;
-//     for x in (-1000..1000).step_by(100) {
-//         let x = x as f32;
-//         let start = Vec3::new(x, -1000.0, 1.1);
-//         let end = Vec3::new(x, 1000.0, 1.1);
-//         lines.line(start, end, thickness);
-//     }
-//     for y in (-1000..1000).step_by(100) {
-//         let y = y as f32;
-//         let start = Vec3::new(-1000.0, y, 1.1);
-//         let end = Vec3::new(1000.0, y, 1.1);
-//         // lines.line(start, end, thickness);
-//     }
-// }
-
-// fn draw_square(
-//     commands: Commands,
-//     mut materials: ResMut<Assets<ColorMaterial>>,
-//     mut quads: ResMut<Assets<shape::Quad>>,
-// ) {
-//     commands.spawn_bundle(PbrBundle {
-//         mesh: quads.add(shape::Quad::new(34)),
-//         material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
-//         transform: Transform::from_translation(-1.0, 0.0, 1.0),
-//         ..Default::default()
-//     });
-// }
-
-// fn create_board(
-//     commands: &mut Commands,
-//     mut meshes: ResMut<Assets<Mesh>>,
-//     mut materials: ResMut<Assets<StandardMaterial>>,
-// ) {
-//     let mesh = meshes.add(Mesh::from(shape::Plane { size: 1. }));
-//     let white_material = materials.add(Color::rgb(1., 0.9, 0.9).into());
-//     let black_material = materials.add(Color::rgb(0., 0.1, 0.1).into());
-
-//     for i in 0..10 {
-//         commands.spawn_bundle(PbrBundle {
-//             mesh: mesh.clone(),
-//             material: white_material.clone(),
-//             transform: Transform::from_translation(Vec3::new(i as f32, 0., i as f32)),
-//             ..Default::default()
-//         });
-//     }
-// }
