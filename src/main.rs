@@ -87,12 +87,6 @@ struct Cell {
     y: f32,
     state: Cellstate,
 }
-// impl Cell {
-//     fn new(x: f32, y: f32, state: Cellstate, index: i32) -> Cell {
-//         if index
-
-//     }
-// }
 
 fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
     let mut cells: Vec<Cell> = Vec::new();
@@ -102,10 +96,6 @@ fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
             x: 0.0,
             y: 0.0,
             state: Cellstate::Alive,
-            // north: None,
-            // south: None,
-            // east: None,
-            // west: None,
         },
         Cell {
             x: 1.0,
@@ -149,6 +139,54 @@ fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
         },
     ];
 
+    let mut temp2 = vec![
+        Cell {
+            x: 0.0,
+            y: 0.0,
+            state: Cellstate::Dead,
+        },
+        Cell {
+            x: 1.0,
+            y: 0.0,
+            state: Cellstate::Alive,
+        },
+        Cell {
+            x: 2.0,
+            y: 0.0,
+            state: Cellstate::Dead,
+        },
+        Cell {
+            x: 0.0,
+            y: 1.0,
+            state: Cellstate::Dead,
+        },
+        Cell {
+            x: 1.0,
+            y: 1.0,
+            state: Cellstate::Alive,
+        },
+        Cell {
+            x: 2.0,
+            y: 1.0,
+            state: Cellstate::Dead,
+        },
+        Cell {
+            x: 0.0,
+            y: 2.0,
+            state: Cellstate::Dead,
+        },
+        Cell {
+            x: 1.0,
+            y: 2.0,
+            state: Cellstate::Alive,
+        },
+        Cell {
+            x: 2.0,
+            y: 2.0,
+            state: Cellstate::Dead,
+        },
+    ];
+
     let mut rng = rand::thread_rng();
 
     for y in 0..10 {
@@ -171,13 +209,6 @@ fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
             }
         }
     }
-
-    // for y in 0..10 {
-    //     for x in 0..10 {
-    //         cells[y * WIDTH + x].north = *cells[(y - 1) * WIDTH + x];
-    //     }
-    // }
-    // let mut neighbor_refs: Vec<&Cell> = Vec::new();
 
     for y in 0..10 {
         let y = y as f32;
@@ -284,9 +315,6 @@ fn get_neighbors(world: &Vec<Cell>, index: usize) -> u32 {
         neighbors.w = None;
         neighbors.nw = None;
     }
-
-    println!("index {}", index);
-    println!("{:?}", neighbors);
 
     let mut count = 0;
 
@@ -460,8 +488,11 @@ fn iteration(
     }
     let mut new_world = old_world.clone();
 
+    println!("------------------------");
     for (i, cell) in old_world.iter().enumerate() {
         let live_neighbors = get_neighbors(&old_world, i);
+
+        print!(" | {}", live_neighbors);
 
         match live_neighbors {
             2 => {
@@ -479,13 +510,8 @@ fn iteration(
                 new_world[i].state = Cellstate::Dead;
             }
         }
-
-        if live_neighbors == 3 {
-            new_world[i].state = Cellstate::Alive;
-        } else {
-            new_world[i].state = Cellstate::Dead;
-        }
     }
+    println!("------------------------");
 
     for (i, (mut cell, mut mat)) in cells.iter_mut().enumerate() {
         match new_world[i].state {
