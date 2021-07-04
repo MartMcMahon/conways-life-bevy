@@ -10,6 +10,10 @@ const WORLD_SIZE: f32 = 800.0;
 const MARGIN: f32 = (WINDOW_WIDTH - WORLD_SIZE) / 2.0;
 const SQUARE_SIZE: f32 = WORLD_SIZE / WIDTH as f32;
 
+struct State {
+    playing: bool,
+}
+
 fn main() {
     App::build()
         //we initial windows size here:
@@ -19,6 +23,7 @@ fn main() {
             height: WINDOW_HEIGHT,
             ..Default::default()
         })
+        .insert_resource(State { playing: true })
         .add_startup_system(setup.system())
         .add_startup_stage("grid", SystemStage::single(spawn_grid.system()))
         .add_system_set(
@@ -26,6 +31,7 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(1.0))
                 .with_system(iteration.system()),
         )
+        .add_system(input_system.system())
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -479,49 +485,52 @@ fn iteration(
     mut commands: Commands,
     mut cells: Query<(&mut Cell, &mut Handle<ColorMaterial>)>,
     materials: Res<Materials>,
+    state: Res<State>,
 ) {
-    let mut old_world: Vec<Cell> = Vec::new();
-    let mut c: i32 = 0;
+    if state.playing {
+        let mut old_world: Vec<Cell> = Vec::new();
+        let mut c: i32 = 0;
 
-    for (mut cell, mut mat) in cells.iter_mut() {
-        old_world.push(cell.clone());
-    }
-    let mut new_world = old_world.clone();
+        for (mut cell, mut mat) in cells.iter_mut() {
+            old_world.push(cell.clone());
+        }
+        let mut new_world = old_world.clone();
 
-    println!("------------------------");
-    for (i, cell) in old_world.iter().enumerate() {
-        let live_neighbors = get_neighbors(&old_world, i);
+        println!("------------------------");
+        for (i, cell) in old_world.iter().enumerate() {
+            let live_neighbors = get_neighbors(&old_world, i);
 
-        print!(" | {}", live_neighbors);
+            print!(" | {}", live_neighbors);
 
-        match live_neighbors {
-            2 => {
-                if cell.state == Cellstate::Alive {
+            match live_neighbors {
+                2 => {
+                    if cell.state == Cellstate::Alive {
+                        new_world[i].state = Cellstate::Alive;
+                    } else {
+                        new_world[i].state = Cellstate::Dead;
+                    }
+                }
+
+                3 => {
                     new_world[i].state = Cellstate::Alive;
-                } else {
+                }
+                _ => {
                     new_world[i].state = Cellstate::Dead;
                 }
             }
-
-            3 => {
-                new_world[i].state = Cellstate::Alive;
-            }
-            _ => {
-                new_world[i].state = Cellstate::Dead;
-            }
         }
-    }
-    println!("------------------------");
+        println!("------------------------");
 
-    for (i, (mut cell, mut mat)) in cells.iter_mut().enumerate() {
-        match new_world[i].state {
-            Cellstate::Alive => {
-                cell.state = Cellstate::Alive;
-                *mat = materials.white_material.clone();
-            }
-            Cellstate::Dead => {
-                cell.state = Cellstate::Dead;
-                *mat = materials.grey_material.clone();
+        for (i, (mut cell, mut mat)) in cells.iter_mut().enumerate() {
+            match new_world[i].state {
+                Cellstate::Alive => {
+                    cell.state = Cellstate::Alive;
+                    *mat = materials.white_material.clone();
+                }
+                Cellstate::Dead => {
+                    cell.state = Cellstate::Dead;
+                    *mat = materials.grey_material.clone();
+                }
             }
         }
     }
@@ -532,4 +541,15 @@ fn square_spawner(mut commands: Commands, materials: Res<Materials>) {
         material: materials.square.clone(),
         ..Default::default()
     });
+}
+
+fn input_system(
+    keys: Res<Input<KeyCode>>,
+    btns: Res<Input<MouseButton>>,
+    mut state: ResMut<State>,
+) {
+    if keys.pressed(KeyCode::Space) {
+        println!("space!");
+        state.playing = !state.playing;
+    }
 }
