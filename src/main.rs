@@ -141,12 +141,9 @@ fn setup(
     commands
         .spawn_bundle(ButtonBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
-                // center button
+                size: Size::new(Val::Px(65.0), Val::Px(65.0)),
                 margin: Rect::all(Val::Auto),
-                // horizontally center child text
                 justify_content: JustifyContent::Center,
-                // vertically center child text
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
@@ -158,8 +155,8 @@ fn setup(
                 text: Text::with_section(
                     "Button",
                     TextStyle {
-                        font: asset_server.load("fonts/arial.ttf"),
-                        font_size: 40.0,
+                        font: asset_server.load("fonts/helvetica.ttf"),
+                        font_size: 30.0,
                         color: Color::rgb(0.9, 0.9, 0.9),
                     },
                     Default::default(),
