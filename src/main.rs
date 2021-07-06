@@ -13,10 +13,58 @@ const SQUARE_SIZE: f32 = WORLD_SIZE / WIDTH as f32;
 struct State {
     playing: bool,
 }
+struct Materials {
+    square: Handle<ColorMaterial>,
+    white_material: Handle<ColorMaterial>,
+    black_material: Handle<ColorMaterial>,
+    grey_material: Handle<ColorMaterial>,
+    normal: Handle<ColorMaterial>,
+    hovered: Handle<ColorMaterial>,
+    pressed: Handle<ColorMaterial>,
+}
+#[derive(Copy, Clone, PartialEq)]
+enum Cellstate {
+    Alive,
+    Dead,
+}
+#[derive(Copy, Clone)]
+struct Cell {
+    x: f32,
+    y: f32,
+    state: Cellstate,
+}
 
+#[derive(Debug)]
+struct Neighbors {
+    nw: Option<i32>,
+    n: Option<i32>,
+    ne: Option<i32>,
+    e: Option<i32>,
+    se: Option<i32>,
+    s: Option<i32>,
+    sw: Option<i32>,
+    w: Option<i32>,
+}
+impl Neighbors {
+    fn new(index: usize, width: i32) -> Neighbors {
+        let idx = index as i32;
+        Neighbors {
+            nw: Some(idx - width - 1),
+            n: Some(idx - width),
+            ne: Some(idx - width + 1),
+            e: Some(idx + 1),
+            se: Some(idx + width + 1),
+            s: Some(idx + width),
+            sw: Some(idx + width - 1),
+            w: Some(idx - 1),
+        }
+    }
+}
+
+/// This example illustrates how to create a button that changes color and text based on its
+/// interaction state.
 fn main() {
     App::build()
-        //we initial windows size here:
         .insert_resource(WindowDescriptor {
             title: "Conway's Dead or Alive Xtreme Volleyball".to_string(),
             width: WINDOW_WIDTH,
@@ -24,19 +72,102 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(State { playing: true })
-        .add_startup_system(setup.system())
-        .add_startup_stage("grid", SystemStage::single(spawn_grid.system()))
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(1.0))
                 .with_system(iteration.system()),
         )
-        .add_system(input_system.system())
         .add_plugins(DefaultPlugins)
+        .init_resource::<ButtonMaterials>()
+        .add_startup_system(setup.system())
+        .add_startup_stage("grid", SystemStage::single(spawn_grid.system()))
+        .add_system(button_system.system())
+        .add_system(input_system.system())
         .run();
 }
 
-fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+struct ButtonMaterials {
+    normal: Handle<ColorMaterial>,
+    hovered: Handle<ColorMaterial>,
+    pressed: Handle<ColorMaterial>,
+}
+
+impl FromWorld for ButtonMaterials {
+    fn from_world(world: &mut World) -> Self {
+        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
+        ButtonMaterials {
+            normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+            hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
+            pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
+        }
+    }
+}
+
+fn button_system(
+    button_materials: Res<ButtonMaterials>,
+    mut interaction_query: Query<
+        (&Interaction, &mut Handle<ColorMaterial>, &Children),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (interaction, mut material, children) in interaction_query.iter_mut() {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        match *interaction {
+            Interaction::Clicked => {
+                text.sections[0].value = "Press".to_string();
+                *material = button_materials.pressed.clone();
+            }
+            Interaction::Hovered => {
+                text.sections[0].value = "Hover".to_string();
+                *material = button_materials.hovered.clone();
+            }
+            Interaction::None => {
+                text.sections[0].value = "Button".to_string();
+                *material = button_materials.normal.clone();
+            }
+        }
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    button_materials: Res<ButtonMaterials>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
+    commands
+        .spawn_bundle(ButtonBundle {
+            style: Style {
+                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                // center button
+                margin: Rect::all(Val::Auto),
+                // horizontally center child text
+                justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            material: button_materials.normal.clone(),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(TextBundle {
+                text: Text::with_section(
+                    "Button",
+                    TextStyle {
+                        font: asset_server.load("fonts/arial.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                    Default::default(),
+                ),
+                ..Default::default()
+            });
+        });
+
     let white_mat = materials.add(Color::rgb(0.9, 0.9, 0.9).into());
     let black_mat = materials.add(Color::rgb(0.1, 0.1, 0.1).into());
 
@@ -45,8 +176,10 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         white_material: materials.add(Color::rgb(0.9, 0.9, 0.9).into()),
         black_material: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
         grey_material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
+        normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+        hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
+        pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
     });
-
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     for x in 0..WIDTH {
@@ -74,24 +207,6 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             ..Default::default()
         });
     }
-}
-
-struct Materials {
-    square: Handle<ColorMaterial>,
-    white_material: Handle<ColorMaterial>,
-    black_material: Handle<ColorMaterial>,
-    grey_material: Handle<ColorMaterial>,
-}
-#[derive(Copy, Clone, PartialEq)]
-enum Cellstate {
-    Alive,
-    Dead,
-}
-#[derive(Copy, Clone)]
-struct Cell {
-    x: f32,
-    y: f32,
-    state: Cellstate,
 }
 
 fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
@@ -244,29 +359,57 @@ fn spawn_grid(mut commands: Commands, materials: Res<Materials>) {
     }
 }
 
-#[derive(Debug)]
-struct Neighbors {
-    nw: Option<i32>,
-    n: Option<i32>,
-    ne: Option<i32>,
-    e: Option<i32>,
-    se: Option<i32>,
-    s: Option<i32>,
-    sw: Option<i32>,
-    w: Option<i32>,
-}
-impl Neighbors {
-    fn new(index: usize, width: i32) -> Neighbors {
-        let idx = index as i32;
-        Neighbors {
-            nw: Some(idx - width - 1),
-            n: Some(idx - width),
-            ne: Some(idx - width + 1),
-            e: Some(idx + 1),
-            se: Some(idx + width + 1),
-            s: Some(idx + width),
-            sw: Some(idx + width - 1),
-            w: Some(idx - 1),
+fn iteration(
+    mut commands: Commands,
+    mut cells: Query<(&mut Cell, &mut Handle<ColorMaterial>)>,
+    materials: Res<Materials>,
+    state: Res<State>,
+) {
+    if state.playing {
+        let mut old_world: Vec<Cell> = Vec::new();
+        let mut c: i32 = 0;
+
+        for (mut cell, mut mat) in cells.iter_mut() {
+            old_world.push(cell.clone());
+        }
+        let mut new_world = old_world.clone();
+
+        println!("------------------------");
+        for (i, cell) in old_world.iter().enumerate() {
+            let live_neighbors = get_neighbors(&old_world, i);
+
+            print!(" | {}", live_neighbors);
+
+            match live_neighbors {
+                2 => {
+                    if cell.state == Cellstate::Alive {
+                        new_world[i].state = Cellstate::Alive;
+                    } else {
+                        new_world[i].state = Cellstate::Dead;
+                    }
+                }
+
+                3 => {
+                    new_world[i].state = Cellstate::Alive;
+                }
+                _ => {
+                    new_world[i].state = Cellstate::Dead;
+                }
+            }
+        }
+        println!("------------------------");
+
+        for (i, (mut cell, mut mat)) in cells.iter_mut().enumerate() {
+            match new_world[i].state {
+                Cellstate::Alive => {
+                    cell.state = Cellstate::Alive;
+                    *mat = materials.white_material.clone();
+                }
+                Cellstate::Dead => {
+                    cell.state = Cellstate::Dead;
+                    *mat = materials.grey_material.clone();
+                }
+            }
         }
     }
 }
@@ -404,151 +547,12 @@ fn get_neighbors(world: &Vec<Cell>, index: usize) -> u32 {
     count
 }
 
-// need to be more thorough checking corner cases
-const wall: Option<i32> = None;
-fn get_neighbor_count(world: &Vec<Cell>, index: usize) -> i32 {
-    let mut count: i32 = 0;
-    let mut neighbors: Vec<usize> = Vec::new();
-
-    println!(" index {}", index);
-    let index = index as i32;
-    println!(" index  {}", index);
-    let width = WIDTH as i32;
-    println!("WIDTH {}", WIDTH);
-    println!("width {}", width);
-
-    // top neighbors
-    let mut val = index - width;
-    let mut n = None;
-    let mut nw = None;
-    let mut ne = None;
-
-    if val >= 0 {
-        n = Some(val);
-
-        if index % width != width - 1 {
-            nw = Some((val - 1));
-        }
-
-        if index % width != 0 && index < 99 {
-            ne = Some((val + 1));
-        }
-    }
-
-    // bottom neighbors
-    val = index + width;
-    let mut s = None;
-    let mut sw = None;
-    let mut w = None;
-    let mut se = None;
-    let mut e = None;
-    if index < (width * (HEIGHT - 1) as i32) {
-        s = Some(val);
-
-        if index % width != 1 {
-            sw = Some((val - 1));
-        }
-
-        if index % width != 0 && index < 99 {
-            se = Some((val + 1));
-        }
-    }
-
-    println!("index {}", index);
-    println!("width {}", width);
-    println!("math {}", index % width);
-    if index % width != 0 {
-        w = Some((index - 1));
-    }
-
-    if index % width != width - 1 {
-        e = Some((index + 1));
-    }
-
-    for i in vec![nw, n, ne, e, se, s, sw, w] {
-        println!("{:?}", i);
-        // println!("usize {:?}", i);
-        match i {
-            Some(idx) => match world[idx as usize].state {
-                Cellstate::Alive => {
-                    count += 1;
-                }
-                Cellstate::Dead => {}
-            },
-            None => {}
-        }
-    }
-    count
-}
-
-fn iteration(
-    mut commands: Commands,
-    mut cells: Query<(&mut Cell, &mut Handle<ColorMaterial>)>,
-    materials: Res<Materials>,
-    state: Res<State>,
-) {
-    if state.playing {
-        let mut old_world: Vec<Cell> = Vec::new();
-        let mut c: i32 = 0;
-
-        for (mut cell, mut mat) in cells.iter_mut() {
-            old_world.push(cell.clone());
-        }
-        let mut new_world = old_world.clone();
-
-        println!("------------------------");
-        for (i, cell) in old_world.iter().enumerate() {
-            let live_neighbors = get_neighbors(&old_world, i);
-
-            print!(" | {}", live_neighbors);
-
-            match live_neighbors {
-                2 => {
-                    if cell.state == Cellstate::Alive {
-                        new_world[i].state = Cellstate::Alive;
-                    } else {
-                        new_world[i].state = Cellstate::Dead;
-                    }
-                }
-
-                3 => {
-                    new_world[i].state = Cellstate::Alive;
-                }
-                _ => {
-                    new_world[i].state = Cellstate::Dead;
-                }
-            }
-        }
-        println!("------------------------");
-
-        for (i, (mut cell, mut mat)) in cells.iter_mut().enumerate() {
-            match new_world[i].state {
-                Cellstate::Alive => {
-                    cell.state = Cellstate::Alive;
-                    *mat = materials.white_material.clone();
-                }
-                Cellstate::Dead => {
-                    cell.state = Cellstate::Dead;
-                    *mat = materials.grey_material.clone();
-                }
-            }
-        }
-    }
-}
-
-fn square_spawner(mut commands: Commands, materials: Res<Materials>) {
-    commands.spawn_bundle(SpriteBundle {
-        material: materials.square.clone(),
-        ..Default::default()
-    });
-}
-
 fn input_system(
     keys: Res<Input<KeyCode>>,
     btns: Res<Input<MouseButton>>,
     mut state: ResMut<State>,
 ) {
-    if keys.pressed(KeyCode::Space) {
+    if keys.just_pressed(KeyCode::Space) {
         println!("space!");
         state.playing = !state.playing;
     }
